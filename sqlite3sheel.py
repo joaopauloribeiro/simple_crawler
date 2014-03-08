@@ -1,8 +1,9 @@
 # A minimal SQLite shell for experiments
 
 import sqlite3
+import sys
 
-con = sqlite3.connect("webcrawler.db")
+con = sqlite3.connect(sys.argv[-1])
 con.isolation_level = None
 cur = con.cursor()
 
