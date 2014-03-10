@@ -13,7 +13,9 @@ def parse_file(filename):
             text = text.replace(char, ' ')
         return text
     def remove_preposition(text):
-        preposition = ['the', 'and', 'of', 'to', 'I', 'you', 'a', 'my', 'in', 'HAMLET', 'it', 'is', 'not', 'his', 'And', 'that', 'this', 'your', 'me', 'with', 'be', 'him', 'for', 'lord', 'he', 'have', 'but', 'as', 'will', 'The']
+        preposition = ['the', 'and', 'of', 'to', 'I', 'you', 'a', 'my', 'in', 'HAMLET', 'it', 'is', 'not', 'his', 'And',
+                       'that', 'this', 'your', 'me', 'with', 'be', 'him', 'for', 'lord', 'he', 'have', 'but', 'as',
+                       'will', 'The']
         for word in preposition:
             word_count = text.count(word)
             for i in range(word_count):
