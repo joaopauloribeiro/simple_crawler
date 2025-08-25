@@ -1,0 +1,114 @@
+name: Matrix Example Workflow
+
+on:
+  push:
+    branches: [ new_action ]
+  pull_request:
+    branches: [ new_action ]
+  workflow_dispatch:
+
+jobs:
+  matrix-demo:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        # Define different values to print in parallel jobs
+        language: [python, javascript, java, go, rust]
+        version: [3.8, 3.9, 3.10]
+        include:
+          # Add specific combinations
+          - language: python
+            version: 3.8
+            greeting: "Hello from Python 3.8!"
+          - language: python
+            version: 3.9
+            greeting: "Hello from Python 3.9!"
+          - language: python
+            version: 3.10
+            greeting: "Hello from Python 3.10!"
+          - language: javascript
+            version: 3.8
+            greeting: "Hello from JavaScript (Node 18)!"
+          - language: javascript
+            version: 3.9
+            greeting: "Hello from JavaScript (Node 19)!"
+          - language: javascript
+            version: 3.10
+            greeting: "Hello from JavaScript (Node 20)!"
+          - language: java
+            version: 3.8
+            greeting: "Hello from Java 11!"
+          - language: java
+            version: 3.9
+            greeting: "Hello from Java 17!"
+          - language: java
+            version: 3.10
+            greeting: "Hello from Java 21!"
+          - language: go
+            version: 3.8
+            greeting: "Hello from Go 1.19!"
+          - language: go
+            version: 3.9
+            greeting: "Hello from Go 1.20!"
+          - language: go
+            version: 3.10
+            greeting: "Hello from Go 1.21!"
+          - language: rust
+            version: 3.8
+            greeting: "Hello from Rust 1.70!"
+          - language: rust
+            version: 3.9
+            greeting: "Hello from Rust 1.71!"
+          - language: rust
+            version: 3.10
+            greeting: "Hello from Rust 1.72!"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Print matrix values
+        run: |
+          echo "🚀 Running job for: ${{ matrix.language }}"
+          echo "📋 Version: ${{ matrix.version }}"
+          echo "💬 Message: ${{ matrix.greeting }}"
+          echo "🔢 Job number: ${{ strategy.job-index }}"
+          echo "📊 Total jobs: ${{ strategy.job-total }}"
+          
+      - name: Show environment info
+        run: |
+          echo "Runner OS: ${{ runner.os }}"
+          echo "GitHub Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+
+  simple-matrix-demo:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        # Simple list of values for demonstration
+        color: [red, green, blue, yellow, purple]
+        
+    steps:
+      - name: Print color value
+        run: |
+          echo "🎨 Current color: ${{ matrix.color }}"
+          echo "This job is processing the color: ${{ matrix.color }}"
+          
+  fruit-matrix-demo:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        # Another simple example with fruits
+        fruit: [apple, banana, orange, grape, strawberry]
+        size: [small, medium, large]
+        
+    steps:
+      - name: Print fruit and size
+        run: |
+          echo "🍎 Fruit: ${{ matrix.fruit }}"
+          echo "📏 Size: ${{ matrix.size }}"
+          echo "Processing ${{ matrix.size }} ${{ matrix.fruit }}"
