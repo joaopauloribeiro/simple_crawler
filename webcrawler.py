@@ -23,7 +23,7 @@ def main():
     def random_file(link):
         return "html/test_" + str(int(time.time())) + ".html"
 
-    c = url_store.init_db()
+    conn, c = url_store.init_db()
     seed_links = []
     #stored_links = url_store.get_urls(seed['page'], c)
     stored_links = {}
@@ -51,7 +51,7 @@ def main():
     #link_index = 1
     #for link_stored in stored_links:
     #	print("Adding link #", link_index, "of ", total_links, "... ", stored_links[link_stored], link_stored)
-    #	url_store.insert_url(stored_links[link_stored], link_stored, c)
+    #	url_store.insert_url(conn, c, stored_links[link_stored], link_stored)
     #	link_index += 1
 
     #find secondary links
@@ -79,10 +79,10 @@ def main():
     link_index = 1
     for link_secondary in secondary_links:
         print("Adding link #", link_index, "of ", total_links, "... ", secondary_links[link_secondary], link_secondary)
-        url_store.insert_url(secondary_links[link_secondary], link_secondary, c)
+        url_store.insert_url(conn, c, secondary_links[link_secondary], link_secondary)
         link_index += 1
 
-    url_store.close_db(c)
+    url_store.close_db(conn)
 
 
 if __name__ == '__main__':

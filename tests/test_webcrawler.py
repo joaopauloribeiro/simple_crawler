@@ -12,8 +12,12 @@ class TestWebCrawler(unittest.TestCase):
     @patch('webcrawler.get_page')
     def test_main_crawler_logic(self, mock_get_page, mock_find_links, mock_url_store):
         # Arrange
-        # Mock get_page to simulate successful page downloads
-        mock_get_page.get_page.return_value = 0
+        current_url = ''
+        def get_page_side_effect(url, filename):
+            nonlocal current_url
+            current_url = url
+            return 0
+        mock_get_page.get_page.side_effect = get_page_side_effect
 
         # Mock find_links to return different links for different pages
         def find_links_side_effect(filename):
@@ -21,7 +25,7 @@ class TestWebCrawler(unittest.TestCase):
                 return [('http://link1.com', 'Link 1')]
             if 'globo' in filename:
                 return [('http://link2.com', 'Link 2')]
-            if 'link1' in filename:
+            if current_url == 'http://link1.com':
                 return [('http://secondary-link.com', 'Secondary')]
             return []
         mock_find_links.find_links.side_effect = find_links_side_effect

@@ -21,7 +21,7 @@ def parse_file(filename):
             for i in range(word_count):
                  text.remove(word)
         return text
-    file = open(filename, 'rU', encoding='latin-1')
+    file = open(filename, 'r', encoding='latin-1')
     file_text = file.read()
     file_words = clean_text(file_text).replace('\n', ' ').split()
     #file_words = remove_preposition(file_words)

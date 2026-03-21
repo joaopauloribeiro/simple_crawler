@@ -45,8 +45,7 @@ class TestUrlStore(unittest.TestCase):
         # The refactored dump_data takes a connection object
         with open(dump_file, 'w') as f:
             for line in self.conn.iterdump():
-                f.write('%s
-' % line)
+                f.write('%s\n' % line)
 
         self.assertTrue(os.path.exists(dump_file))
         os.remove(dump_file)
