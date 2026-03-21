@@ -7,24 +7,22 @@ Created on Apr 22, 2012
 import sqlite3
 import time
 
-conn = sqlite3.connect('webcrawler.db')
 
-
-def init_db():
+def init_db(db_name='webcrawler.db'):
+    conn = sqlite3.connect(db_name)
     conn.text_factory = sqlite3.OptimizedUnicode
     c = conn.cursor()
-    #c.execute('CREATE TABLE ref_links (page text, link text, date text)')
     c.execute('CREATE TABLE IF NOT EXISTS ref_links (page TEXT, link TEXT, date TEXT)')
-    return c
+    return conn, c
 
 
-def insert_url(page, url, c):
+def insert_url(conn, c, page, url):
     value = (page, url, time.asctime())
     c.execute("INSERT INTO ref_links VALUES (?,?,?)", value)
     conn.commit()
 
 
-def get_link(link, c):
+def get_link(c, link):
     query = (link,)
     c.execute("SELECT * FROM ref_links WHERE link = ?", query)
     result = []
@@ -34,7 +32,7 @@ def get_link(link, c):
     return result
 
 
-def get_urls(page, c):
+def get_urls(c, page):
     query = (page,)
     c.execute("SELECT * FROM ref_links WHERE page = ?", query)
     result = []
@@ -44,22 +42,22 @@ def get_urls(page, c):
     return result
 
 
-def dump_data():
+def dump_data(conn):
     with open('dump.sql', 'w') as f:
         for line in conn.iterdump():
             f.write('%s\n' % line)
     f.close()
 
 
-def close_db(c):
-    c.close()
+def close_db(conn):
+    conn.close()
 
 
 if __name__ == '__main__':
-    c = init_db()
-    insert_url("http://www.google.com", "http://plus.google.com", c)
-    insert_url("http://www.google.com", "http://image.google.com", c)
-    insert_url("http://www.google.com", "http://reader.google.com", c)
-    urls = get_urls("http://www.google.com", c)
+    conn, c = init_db()
+    insert_url(conn, c, "http://www.google.com", "http://plus.google.com")
+    insert_url(conn, c, "http://www.google.com", "http://image.google.com")
+    insert_url(conn, c, "http://www.google.com", "http://reader.google.com")
+    urls = get_urls(c, "http://www.google.com")
     print(urls)
-    close_db(c)
+    close_db(conn)
