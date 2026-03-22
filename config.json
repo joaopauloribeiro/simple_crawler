@@ -1,0 +1,25 @@
+{
+    "llm": {
+        "endpoint": "http://localhost:8080/v1/chat/completions",
+        "api_key": "not-needed"
+    },
+    "crawler": {
+        "db_name": "webcrawler.db",
+        "download_folder": "html",
+        "seeds": [
+            "http://www.opovo.com.br",
+            "http://www.globo.com",
+            "http://www.r7.com",
+            "http://www.uol.com.br",
+            "http://about.com"
+        ],
+        "timeout": 10
+    },
+    "wordcount": {
+        "prepositions": [
+            "the", "and", "of", "to", "I", "you", "a", "my", "in", "HAMLET", "it", "is", "not", "his", "And",
+            "that", "this", "your", "me", "with", "be", "him", "for", "lord", "he", "have", "but", "as",
+            "will", "The"
+        ]
+    }
+}

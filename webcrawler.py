@@ -1,89 +1,71 @@
-'''
-Created on Apr 22, 2012
-
-@author: lordzeus
-'''
+import os
 import time
+from urllib.parse import quote_plus
 import get_page
 import find_links
-import url_store
+from url_store import URLStore
+import json
 
-seeds = [{'page': 'http://www.opovo.com.br', 'file': 'html/opovo.html'},
-         {'page': 'http://www.globo.com', 'file': 'html/globo.html'},
-         {'page': 'http://www.r7.com', 'file': 'html/r7.html'},
-         {'page': 'http://www.uol.com.br', 'file': 'html/uol.html'},
-         {'page': 'http://about.com', 'file': 'html/about.html'}]
-#seeds = [{'page':'http://google.com', 'file':'html/google.html'},{'page':'http://www.uol.com.br', 'file':'html/uol.html'
-# },{'page':'http://www.opovo.com.br', 'file':'html/opovo.html'},{'page':'http://www.globo.com', 'file':'html/globo.html'}]
-#seeds = [{'page':'http://google.com', 'file':'html/google.html'},{'page':'http://yahoo.com', 'file':'html/yahoo.html'},
-# {'page':'http://about.com', 'file':'html/about.html'},{'page':'http://uol.com.br', 'file':'html/uol.html'},
-# {'page':'http://globo.com', 'file':'html/globo.html'},{'page':'http://terra.com.br', 'file':'html/terra.html'}]
+def get_config():
+    with open('config.json', 'r') as f:
+        return json.load(f)
+
+class Crawler:
+    def __init__(self, seeds, db_name=None, download_folder=None):
+        if db_name is None:
+            config = get_config()
+            db_name = config.get('crawler', {}).get('db_name', 'webcrawler.db')
+        if download_folder is None:
+            config = get_config()
+            download_folder = config.get('crawler', {}).get('download_folder', 'html')
+
+        self.seeds = seeds
+        self.url_store = URLStore(db_name)
+        self.download_folder = download_folder
+        if not os.path.exists(self.download_folder):
+            os.makedirs(self.download_folder)
+
+    def get_filename(self, url):
+        """Creates a valid filename from a URL."""
+        # Use quote_plus to handle special characters in URLs
+        # Replace / with _ to avoid creating subdirectories
+        return os.path.join(self.download_folder, quote_plus(url).replace('/', '_') + '.html')
+
+    def crawl(self, depth=1):
+        urls_to_crawl = list(self.seeds)
+        crawled_urls = set()
+        
+        for current_depth in range(depth + 1):
+            next_urls_to_crawl = []
+            for url in urls_to_crawl:
+                if url in crawled_urls:
+                    continue
+
+                filename = self.get_filename(url)
+                
+                print(f"Crawling (depth {current_depth}): {url}")
+                if get_page.get_page(url, filename) == -1:
+                    crawled_urls.add(url) # Mark as crawled even if failed to avoid retries
+                    continue
+
+                crawled_urls.add(url)
+                
+                new_links = find_links.find_links(filename, url)
+                
+                for new_link, _ in new_links:
+                    self.url_store.insert_url(url, new_link)
+                    if new_link not in crawled_urls:
+                        next_urls_to_crawl.append(new_link)
+            
+            urls_to_crawl = next_urls_to_crawl
+
 
 def main():
-    def random_file(link):
-        return "html/test_" + str(int(time.time())) + ".html"
-
-    conn, c = url_store.init_db()
-    seed_links = []
-    #stored_links = url_store.get_urls(seed['page'], c)
-    stored_links = {}
-    #find primary links
-    for seed in seeds:
-        print("Adding links for ", seed['page'], " saving in file: ", seed['file'])
-        try:
-            page_flag = get_page.get_page(seed['page'], seed['file'])
-        except:
-            continue
-        if page_flag == -1:
-            continue
-        try:
-            seed_links = find_links.find_links(seed['file'])
-        except:
-            continue
-        for link in seed_links:
-            if link[0] not in stored_links:
-                #print("Adding link: ", link[0], "for page: ", seed['page'])
-                stored_links[link[0]] = seed['page']
-            else:
-                print("Link already added", link[0])
-    #add primary links to database
-    #total_links = len(stored_links.keys())
-    #link_index = 1
-    #for link_stored in stored_links:
-    #	print("Adding link #", link_index, "of ", total_links, "... ", stored_links[link_stored], link_stored)
-    #	url_store.insert_url(conn, c, stored_links[link_stored], link_stored)
-    #	link_index += 1
-
-    #find secondary links
-    secondary_links = stored_links.copy()
-    for seed in stored_links:
-        print("Searching links in ", seed)
-        filename = random_file(seed)
-        try:
-            page_flag = get_page.get_page(seed, filename)
-        except:
-            continue
-        if page_flag == -1:
-            continue
-        try:
-            seed_links = find_links.find_links(filename)
-        except:
-            continue
-        for link in seed_links:
-            if link[0] not in secondary_links:
-                print("Adding secondary link...", link[0])
-                secondary_links[link[0]] = seed
-            else:
-                print("Link secondary already added", link[0])
-    total_links = len(secondary_links.keys())
-    link_index = 1
-    for link_secondary in secondary_links:
-        print("Adding link #", link_index, "of ", total_links, "... ", secondary_links[link_secondary], link_secondary)
-        url_store.insert_url(conn, c, secondary_links[link_secondary], link_secondary)
-        link_index += 1
-
-    url_store.close_db(conn)
-
+    config = get_config()
+    seeds = config.get('crawler', {}).get('seeds', [])
+    
+    crawler = Crawler(seeds)
+    crawler.crawl(depth=1)
 
 if __name__ == '__main__':
     main()

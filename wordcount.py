@@ -5,6 +5,11 @@ Created on Aug 28, 2011
 '''
 
 import sys
+import json
+
+def get_config():
+    with open('config.json', 'r') as f:
+        return json.load(f)
 
 def parse_file(filename):
     def clean_text(text):
@@ -13,9 +18,8 @@ def parse_file(filename):
             text = text.replace(char, ' ')
         return text
     def remove_preposition(text):
-        preposition = ['the', 'and', 'of', 'to', 'I', 'you', 'a', 'my', 'in', 'HAMLET', 'it', 'is', 'not', 'his', 'And',
-                       'that', 'this', 'your', 'me', 'with', 'be', 'him', 'for', 'lord', 'he', 'have', 'but', 'as',
-                       'will', 'The']
+        config = get_config()
+        preposition = config.get('wordcount', {}).get('prepositions', [])
         for word in preposition:
             word_count = text.count(word)
             for i in range(word_count):

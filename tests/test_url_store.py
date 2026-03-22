@@ -1,54 +1,51 @@
-
 import unittest
-import sqlite3
+from unittest.mock import patch, mock_open
 import os
 import sys
 sys.path.append('..')
-import url_store
+from url_store import URLStore
 
 class TestUrlStore(unittest.TestCase):
 
     def setUp(self):
         # Use an in-memory database for testing
-        self.conn, self.c = url_store.init_db(':memory:')
+        self.url_store = URLStore(db_name=':memory:')
 
     def tearDown(self):
-        url_store.close_db(self.conn)
+        self.url_store.close()
 
-    def test_init_db(self):
+    def test_table_creation(self):
         # Check if the table was created
-        self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ref_links'")
-        self.assertIsNotNone(self.c.fetchone())
+        self.url_store.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ref_links'")
+        self.assertIsNotNone(self.url_store.c.fetchone())
 
     def test_insert_and_get_urls(self):
-        url_store.insert_url(self.conn, self.c, 'page1', 'link1')
-        url_store.insert_url(self.conn, self.c, 'page1', 'link2')
-        urls = url_store.get_urls(self.c, 'page1')
+        self.url_store.insert_url('page1', 'link1')
+        self.url_store.insert_url('page1', 'link2')
+        urls = self.url_store.get_urls('page1')
         self.assertEqual(len(urls), 2)
         self.assertIn('link1', urls)
         self.assertIn('link2', urls)
 
     def test_get_link(self):
-        url_store.insert_url(self.conn, self.c, 'page1', 'link1')
-        url_store.insert_url(self.conn, self.c, 'page2', 'link1')
-        links = url_store.get_link(self.c, 'link1')
-        self.assertEqual(len(links), 2)
+        self.url_store.insert_url('page1', 'link1')
+        self.url_store.insert_url('page2', 'link1')
+        pages = self.url_store.get_link('link1')
+        self.assertEqual(len(pages), 2)
+        self.assertIn('page1', pages)
+        self.assertIn('page2', pages)
 
-    def test_dump_data(self):
-        dump_file = 'test_dump.sql'
-        url_store.insert_url(self.conn, self.c, 'page1', 'link1')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_dump_data(self, mock_file):
+        self.url_store.insert_url('page1', 'link1')
+        self.url_store.dump_data('test_dump.sql')
         
-        # To test dump_data, we need to mock open, so we will patch it.
-        # For simplicity, we will just call the function and check if the file is created.
-        # A more robust test would mock the file system.
+        # Check that open was called with the correct file
+        mock_file.assert_called_once_with('test_dump.sql', 'w')
         
-        # The refactored dump_data takes a connection object
-        with open(dump_file, 'w') as f:
-            for line in self.conn.iterdump():
-                f.write('%s\n' % line)
-
-        self.assertTrue(os.path.exists(dump_file))
-        os.remove(dump_file)
+        # Check that something was written to the file
+        handle = mock_file()
+        handle.write.assert_called()
 
 if __name__ == '__main__':
     unittest.main()
