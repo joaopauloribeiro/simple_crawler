@@ -1,78 +1,71 @@
-'''
-Created on Aug 28, 2011
+"""
+Word frequency counter.
 
-@author: lordzeus
-'''
+Usage:
+    python wordcount.py <file> [--top N] [--min-count N] [--total]
 
-import sys
+Examples:
+    python wordcount.py page.html                # all words, sorted by frequency
+    python wordcount.py page.html --top 20       # top 20 words
+    python wordcount.py page.html --min-count 5  # words appearing ≥ 5 times
+    python wordcount.py page.html --top 10 --total
+"""
+import argparse
+from collections import Counter
+from pathlib import Path
 
-def parse_file(filename):
-    def clean_text(text):
-        ponctuation = ',.;:~^]}[{=+-_()<>|\\/*&%$#@!"'
-        for char in ponctuation:
-            text = text.replace(char, ' ')
-        return text
-    def remove_preposition(text):
-        preposition = ['the', 'and', 'of', 'to', 'I', 'you', 'a', 'my', 'in', 'HAMLET', 'it', 'is', 'not', 'his', 'And',
-                       'that', 'this', 'your', 'me', 'with', 'be', 'him', 'for', 'lord', 'he', 'have', 'but', 'as',
-                       'will', 'The']
-        for word in preposition:
-            word_count = text.count(word)
-            for i in range(word_count):
-                 text.remove(word)
-        return text
-    file = open(filename, 'rU', encoding='latin-1')
-    file_text = file.read()
-    file_words = clean_text(file_text).replace('\n', ' ').split()
-    #file_words = remove_preposition(file_words)
-    return file_words
+_PUNCTUATION = ',.;:~^]}[{=+-_()<>|\\/*&%$#@!"\'?'
 
-def word_count(text_words):
-    words_count = {}
-    for word in text_words:
-        if word not in words_count:
-            words_count[word] = 1
-        else:
-            words_count[word] += 1
-    return words_count
 
-def top_words(limit, words_count):
-    def count(word_tuple):
-        return (word_tuple[1])
-    sorted_word_count = sorted(words_count.items(), key=count, reverse=True)
-    top_words_count = []
-    if limit == -1:
-        sorted_word_count = sorted_word_count[:30]
-    for tupple in sorted_word_count:
-        if tupple[1] > limit:
-            top_words_count.append(tupple)
-    return top_words_count
+def parse_file(filepath: str | Path) -> list[str]:
+    text = Path(filepath).read_text(encoding="latin-1", errors="replace")
+    for char in _PUNCTUATION:
+        text = text.replace(char, " ")
+    return text.split()
 
-def main():
-    if len(sys.argv) == 1:
-        print("usage:\n", sys.argv[0], " filename [--top [limit]] [-t]")
-    else:
-        print(sys.argv[1:])
-        file_parsed = parse_file(sys.argv[1])
-        word_ranking = word_count(file_parsed)
-        if len(sys.argv) == 3:
-            word_ranking = top_words(-1, word_ranking)
-        elif len(sys.argv) >= 4:
-            word_ranking = top_words(int(sys.argv[3]), word_ranking)
 
-        total_word_count = 0
-        words_list = []
-        for word_tupple in word_ranking:
-            if len(sys.argv) >= 3:
-                total_word_count += word_tupple[1]
-                print(word_tupple[0], ':', word_tupple[1])
-            else:
-                print(word_tupple)
-            words_list.append(word_tupple[0])
+def word_count(words: list[str]) -> Counter[str]:
+    return Counter(words)
 
-        print(words_list)
-        if len(sys.argv) == 5:
-            print("Total Word Count:",total_word_count)
 
-if __name__ == '__main__':
+def top_words(
+    counts: Counter[str],
+    top_n: int | None = None,
+    min_count: int | None = None,
+) -> list[tuple[str, int]]:
+    result = counts.most_common()
+    if min_count is not None:
+        result = [(w, c) for w, c in result if c >= min_count]
+    if top_n is not None:
+        result = result[:top_n]
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Count word frequencies in a text file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("filename", help="File to analyse")
+    parser.add_argument("--top", type=int, metavar="N",
+                        help="Show only the top N words by frequency")
+    parser.add_argument("--min-count", type=int, metavar="N",
+                        help="Exclude words appearing fewer than N times")
+    parser.add_argument("--total", action="store_true",
+                        help="Print the total word count at the end")
+    args = parser.parse_args()
+
+    words = parse_file(args.filename)
+    counts = word_count(words)
+    results = top_words(counts, top_n=args.top, min_count=args.min_count)
+
+    for word, count in results:
+        print(f"{word}: {count}")
+
+    if args.total:
+        print(f"\nTotal words shown: {sum(c for _, c in results)}")
+        print(f"Unique words in file: {len(counts)}")
+
+
+if __name__ == "__main__":
     main()

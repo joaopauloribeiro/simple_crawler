@@ -4,47 +4,91 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A minimal educational web crawler (~2012) that fetches seed URLs, extracts hyperlinks via regex, and stores them in SQLite3. All dependencies are Python standard library only (`sqlite3`, `urllib`, `re`, `sys`, `html.entities`). There is no packaging, no `requirements.txt`, and no test suite.
+A modernised educational web crawler (Python 3.10+). It fetches seed URLs, extracts hyperlinks using `html.parser`, respects `robots.txt`, rate-limits requests per host, and stores discovered links in SQLite. All dependencies are Python standard library only.
 
-## Running the Crawler
+## Commands
 
 ```bash
-python webcrawler.py
-```
+# Run tests (requires pytest)
+pip install pytest
+pytest                          # all 66 tests, verbose
+pytest tests/test_storage.py    # single module
 
-Seed URLs are hardcoded at the top of `webcrawler.py`. Edit that array to change crawl targets.
+# Run the crawler
+python webcrawler.py
+python webcrawler.py --seeds https://example.com --db my.db --delay 2.0
+python webcrawler.py --help
+
+# Word frequency tool
+python wordcount.py somefile.txt --top 20 --min-count 3
+
+# Python concepts quiz (interactive CLI)
+python quiz/python_concepts_quiz.py
+python quiz/python_concepts_quiz.py --shuffle
+python quiz/python_concepts_quiz.py --topic pathlib
+```
 
 ## Architecture
 
-The crawl runs in two phases, both orchestrated by `webcrawler.py`:
+Two-phase crawl orchestrated by `webcrawler.py`:
 
-1. **Primary discovery** — fetch each seed URL with `get_page.get_page()`, parse links with `find_links.find_links()`, accumulate in a dict keyed by source URL.
-2. **Secondary discovery** — for every link found in phase 1, fetch and parse again, accumulating a second dict.
-3. **Persistence** — insert all secondary links into SQLite via `url_store.insert_url()`.
+1. **Primary discovery** — fetch each seed with `crawler.fetcher.get_page()`, parse links with `crawler.parser.find_links()`, accumulate in `primary` dict keyed by discovered URL.
+2. **Secondary discovery** — fetch each primary link, parse again, accumulate only URLs not seen in phase 1 into `secondary` dict.
+3. **Persistence** — batch-insert all `(source, link)` pairs via `crawler.storage.CrawlerDB.insert_links_batch()`.
 
 Module responsibilities:
-- `get_page.py` — downloads a URL and saves it to a local file; returns 0 on success, -1 on failure.
-- `find_links.py` — regex-based `<a href>` extraction; returns `[(url, link_text), ...]`. Depends on `html_unescape.py`.
-- `html_unescape.py` — converts numeric and named HTML entities to Unicode.
-- `url_store.py` — thin SQLite3 wrapper; exposes `init_db()`, `insert_url()`, `get_link()`, `get_urls()`, `dump_data()`, `close_db()`. Uses a module-level global `conn`.
-- `wordcount.py` — standalone CLI tool; reads a crawled file and prints word frequencies.
 
-Files that are **not part of the active codebase**: `categorizer.py` (empty stub), `sqlite3sheel.py` (Python 2–only interactive SQL shell), `util/url_store.py` (development scratch file), `perl/urldump.pl` (legacy Perl reference).
-
-## Python 2/3 Compatibility
-
-The code conditionally imports `urllib` vs `urllib.request` and `htmlentitydefs` vs `html.entities` based on `sys.version_info`. Preserve this pattern when modifying those files.
+| Module | Role |
+|---|---|
+| `crawler/config.py` | `CrawlerConfig` dataclass; default seed list |
+| `crawler/fetcher.py` | HTTP download with timeout, `User-Agent`, robots.txt cache, URL validation |
+| `crawler/parser.py` | `HTMLParser`-based `<a href>` extraction; resolves relative URLs; filters non-HTTP schemes |
+| `crawler/storage.py` | SQLite context manager; `INSERT OR IGNORE`; indexes on `page` and `link`; batch commit |
+| `wordcount.py` | Standalone CLI: word frequency via `collections.Counter` + `argparse` |
+| `quiz/python_concepts_quiz.py` | Interactive 20-question quiz on Python 3.4–3.12 features |
 
 ## Database Schema
 
-Single table in `links.db` (created at runtime):
-
 ```sql
-CREATE TABLE ref_links (page TEXT, link TEXT, date TEXT)
+CREATE TABLE IF NOT EXISTS ref_links (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    page    TEXT NOT NULL,
+    link    TEXT NOT NULL,
+    date    TEXT NOT NULL,
+    UNIQUE(page, link)
+);
+CREATE INDEX IF NOT EXISTS idx_ref_page ON ref_links(page);
+CREATE INDEX IF NOT EXISTS idx_ref_link ON ref_links(link);
+
+CREATE TABLE IF NOT EXISTS crawl_log (
+    url        TEXT PRIMARY KEY,
+    fetched_at TEXT NOT NULL,
+    status     TEXT NOT NULL
+);
 ```
 
-No indexes. The database file is not committed to the repo.
+## Key Design Decisions
+
+- **No bare `except:`** — all exception handling names specific types (`urllib.error.HTTPError`, `urllib.error.URLError`, `TimeoutError`, `OSError`).
+- **`CrawlerDB` is a context manager** — the SQLite connection is created in `__enter__` and closed in `__exit__`. Never import at module level.
+- **`INSERT OR IGNORE`** — deduplication is enforced by the `UNIQUE(page, link)` constraint, not in Python.
+- **`html.parser` not regex** — `_LinkParser` subclasses `HTMLParser`, which handles multi-line tags, attributes before `href`, and nested tags correctly.
+- **`html.unescape()`** — replaces the old hand-rolled `html_unescape.py`; available in stdlib since Python 3.4.
+- **`pathlib.Path` throughout** — no string concatenation for file paths; `mkdir(parents=True, exist_ok=True)` prevents missing-directory crashes.
+
+## Python Version
+
+Python 3.10 minimum (`pyproject.toml` enforces `requires-python = ">=3.10"`). The `X | Y` union type syntax and `match`/`case` are used.
+
+## Files No Longer in the Codebase
+
+`get_page.py`, `find_links.py`, `html_unescape.py`, `url_store.py` — superseded by the `crawler/` package. `categorizer.py`, `sqlite3sheel.py`, `util/url_store.py` — removed (empty stub, Python 2-only shell, development scratch).
+
+## Additional Documentation
+
+- `docs/MODERNIZATION.md` — step-by-step record of every change from the 2012 original.
+- `docs/CRAWLER_USES_REPORT.md` — analytical report on modern use-cases for web crawlers.
 
 ## GitHub Actions
 
-`.github/workflows/matrix-example.yml` is an educational example of the matrix strategy feature. It triggers only on the `new_action` branch and contains no crawler-specific build or test steps—it is not part of the development workflow.
+`.github/workflows/matrix-example.yml` is an educational example of the matrix strategy feature. It triggers only on the `new_action` branch and is not part of the development workflow.
